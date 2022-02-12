@@ -1,0 +1,12 @@
+EVENTS
+
+EVENT RefreshClientDye
+VARS
+	ITEM: _Item
+ON
+	OnItemEvent(_Item, "DYE_RefreshItem")
+ACTIONS
+	ItemApplyStatus(_Item, "BLESSED", 1, 1)
+	SetMaterial(_Item, "a4ee7b20-9ee6-41a1-a114-b89742acda35", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+	//SetMaterial(_Item, "", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+

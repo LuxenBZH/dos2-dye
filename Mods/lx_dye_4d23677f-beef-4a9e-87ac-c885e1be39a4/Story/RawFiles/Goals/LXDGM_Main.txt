@@ -1,0 +1,23 @@
+Version 1
+SubGoalCombiner SGC_AND
+INITSECTION
+
+KBSECTION
+IF
+NRD_OnStatusAttempt(_,_,_,_)
+THEN
+DB_NOOP(1);
+
+IF
+ObjectTurnStarted(_)
+THEN
+DB_NOOP(1);
+
+IF
+CharacterUsedSkillAtPosition(_,_,_,_,_,_,_)
+THEN
+DB_NOOP(1);
+
+EXITSECTION
+
+ENDEXITSECTION

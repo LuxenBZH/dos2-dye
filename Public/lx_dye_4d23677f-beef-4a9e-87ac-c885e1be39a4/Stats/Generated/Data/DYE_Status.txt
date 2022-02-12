@@ -1,0 +1,9 @@
+new entry "DYE_APPLY"
+type "StatusData"
+data "StatusType" "CONSUME"
+data "StatsId" "Stats_LX_DyeApply"
+
+new entry "Stats_LX_DyeApply"
+type "Potion"
+data "Act" "1"
+data "Act part" "0"
