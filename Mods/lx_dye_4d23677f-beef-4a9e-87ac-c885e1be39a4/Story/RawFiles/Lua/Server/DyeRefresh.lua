@@ -1,3 +1,5 @@
+local levelKey
+
 Ext.RegisterNetListener("DyeItem", function(call, payload)
     local infos = Ext.JsonParse(payload)
     local item = Ext.GetItem(tonumber(infos.Item)) --- @type EsvItem
@@ -6,12 +8,12 @@ Ext.RegisterNetListener("DyeItem", function(call, payload)
         if ObjectIsCharacter(inventory) == 1 then
             ApplyStatus(inventory, "DYE_APPLY", 0.0)
             if Ext.GetCharacter(inventory).IsPossessed then
-                local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+                -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
                 PersistentVars.DyedItems[levelKey][item.MyGuid] = true
             end
         end
     else
-        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+        -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
         PersistentVars.DyedItems[levelKey][item.MyGuid] = true
         Transform(item.MyGuid, item.RootTemplate.Id, 0, 0, 0)
     end
@@ -50,8 +52,26 @@ Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
 end)
 
 Ext.RegisterOsirisListener("GameStarted", 2, "before", function(level, isEditor)
-    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+    levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
     if not PersistentVars.DyedItems[levelKey] then
         PersistentVars.DyedItems[levelKey] = {}
+    end
+end)
+
+Ext.RegisterOsirisListener("ItemDropped", 1, "before", function(item)
+    if NRD_ItemGetPermanentBoostString(item, "ItemColor") ~= "" then
+        -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+        PersistentVars.DyedItems[levelKey][item] = true
+    end
+end)
+
+Ext.RegisterOsirisListener("ItemAddedToCharacter", 2, "before", function(item, character)
+
+    -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+    if Ext.GetGameState() == "Running" and PersistentVars.DyedItems[levelKey][item] then
+        local char = Ext.GetCharacter(character)
+        if char.IsPlayer and not char.IsPossessed then
+            PersistentVars.DyedItems[levelKey][item] = false
+        end
     end
 end)
