@@ -64,13 +64,8 @@ local function EquipmentTooltips(item, tooltip)
     if item.Stats then
         local dye = LookForItemColorBoost(item)
         if dye then
-            local equipment = {
-                Type = "ItemDescription",
-                Label = "Dye : <font color=\""..dyes[dye].Colors[1].."\">"..dyes[dye].Name.."</font>",
-                RequirementMet = true,
-            }
             local description = tooltip:GetElement("ItemDescription")
-            description.Label = description.Label.."\nDye : <font color=\"#e674bf\">something</font>"
+            description.Label = description.Label.."\nDye : <font color=\""..dyes[dye].Colors[1].."\">"..dyes[dye].Name.."</font>"
         end
     end
 end
@@ -84,9 +79,11 @@ Ext.RegisterListener("SessionLoaded", LXN_Tooltips_Dye_Init)
 
 Ext.RegisterNetListener("DyeSetup", function(call, payload)
     local items = Ext.JsonParse(payload)
-    for i,netid in pairs(items) do
-        local item = Ext.GetItem(netid)
-        DyeItem(item, item.Stats.DynamicStats[1].ItemColor)
+    Ext.Dump(items)
+    for netid, color in pairs(items) do
+        local item = Ext.GetItem(tonumber(netid))
+        Ext.Print(item, color)
+        DyeItem(item, color)
     end
 end)
 
@@ -111,6 +108,11 @@ Ext.RegisterListener("SessionLoaded", function()
         currentItem = nil
         root.dyer_mc.visible = false
     end)
-    Ext.PostMessageToServer("DyeFetchList", "")
+end)
+
+Ext.RegisterListener("GameStateChanged", function(fromState, toState)
+    if toState == "Running" and fromState ~= "GameMasterPause" then
+        Ext.PostMessageToServer("DyeFetchList", "")
+    end
 end)
 

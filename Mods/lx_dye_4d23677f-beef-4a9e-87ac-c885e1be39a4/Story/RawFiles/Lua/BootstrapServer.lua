@@ -1,5 +1,7 @@
-if not PersistentVars then
-    PersistentVars = {}
+PersistentVars = {}
+
+if PersistentVars.DyedItems == nil then
+    PersistentVars.DyedItems = {}
 end
 
 Ext.Require("BootstrapShared.lua")
