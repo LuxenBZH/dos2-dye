@@ -26,14 +26,15 @@ if Mods.LeaderLib then
         if Game.Tooltip.IsOpen() then
             ---@type TooltipCustomStatRequest
             local request = Game.Tooltip.GetCurrentOrLastRequest()
-            local characterId = request.Character.NetID
+            local character = Ext.GetCharacter(Ext.Entity.GetInventory(Ext.GetItem(Ext.DoubleToHandle(request.ObjectHandleDouble)).InventoryParentHandle).ParentHandle)
+            if not character then return end
             local infos = {
                 Context = Ext.GetItem(request.ItemNetID),
-                Character = characterId
+                Character = character.NetID
             }
             contextMenu:AddBuiltinEntry("LXN_Dye", function(cMenu, ui, id, actionID, handle)
                 local root = Ext.GetUI("LXN_Dye"):GetRoot()
-                PrepareDye(infos.Context)
+                PrepareDye(Ext.GetItem(Ext.DoubleToHandle(request.ObjectHandleDouble)))
             end, "Dye")
         end
     end)

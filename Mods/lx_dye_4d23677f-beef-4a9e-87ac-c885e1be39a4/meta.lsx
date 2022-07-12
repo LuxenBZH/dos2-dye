@@ -16,7 +16,7 @@
                         </node>
                         <node id="ModuleShortDesc">
                             <attribute id="Folder" value="Shared_DOS" type="30" />
-                            <attribute id="MD5" value="51f45a5233f4b8a45b8a8ab71eccbc30" type="23" />
+                            <attribute id="MD5" value="" type="23" />
                             <attribute id="Name" value="Shared_DOS" type="22" />
                             <attribute id="UUID" value="eedf7638-36ff-4f26-a50a-076b87d53ba0" type="22" />
                             <attribute id="Version" value="268435456" type="4" />

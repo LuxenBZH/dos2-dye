@@ -8,19 +8,21 @@ Ext.RegisterNetListener("DyeItem", function(call, payload)
         if ObjectIsCharacter(inventory) == 1 then
             ApplyStatus(inventory, "DYE_APPLY", 0.0)
             if Ext.GetCharacter(inventory).IsPossessed then
-                -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+                local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
                 PersistentVars.DyedItems[levelKey][item.MyGuid] = true
             end
         end
     else
-        -- local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
         PersistentVars.DyedItems[levelKey][item.MyGuid] = true
         Transform(item.MyGuid, item.RootTemplate.Id, 0, 0, 0)
     end
-    NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", infos.Dye)
+    if infos.Dye == "Default" then
+        NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", "")
+    else
+        NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", infos.Dye)
+    end 
 end)
-
-Ext.RegisterNetListener("")
 
 local function GetPlayersInventoriesDyes()
     local players = Osi.DB_IsPlayer:Get(nil)
