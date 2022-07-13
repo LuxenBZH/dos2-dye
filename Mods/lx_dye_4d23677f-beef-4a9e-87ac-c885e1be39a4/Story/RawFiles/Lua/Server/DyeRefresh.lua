@@ -2,6 +2,8 @@ local levelKey
 
 Ext.RegisterNetListener("DyeItem", function(call, payload)
     local infos = Ext.JsonParse(payload)
+    Ext.Print("DYES: server dye call", infos.Dye)
+    Ext.Net.BroadcastMessage("DyeItemClient", payload)
     local item = Ext.GetItem(tonumber(infos.Item)) --- @type EsvItem
     if infos.InInventory then
         local inventory = GetInventoryOwner(item.MyGuid)
@@ -19,6 +21,13 @@ Ext.RegisterNetListener("DyeItem", function(call, payload)
     end
     if infos.Dye == "Default" then
         NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", "")
+    elseif infos.Dye == "CUSTOM" then
+        local dye = "CUSTOM_"..infos.Colors[1]..infos.Colors[2]..infos.Colors[3]
+        Ext.Dump(Ext.Stats.ItemColor.Get(dye))
+        if not Ext.Stats.ItemColor.Get(dye) then
+            Ext.Stats.ItemColor.Update(dye, tonumber(infos.Colors[1]), tonumber(infos.Colors[2]), tonumber(infos.Colors[3]))
+        end
+        NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", dye)
     else
         NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", infos.Dye)
     end 

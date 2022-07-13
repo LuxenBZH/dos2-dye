@@ -1,4 +1,6 @@
-PersistentVars = {}
+if not PersistentVars then
+    PersistentVars = {}
+end
 
 if PersistentVars.DyedItems == nil then
     PersistentVars.DyedItems = {}

@@ -7,7 +7,6 @@ local function ChangeDyerMcColors(name, colors)
     root.dyer_mc.colorSelector_mc.cSet_mc.changePartColor(1, tonumber("0x"..colors[2]))
     root.dyer_mc.colorSelector_mc.cSet_mc.changePartColor(2, tonumber("0x"..colors[3]))
     root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = name
-    root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.text_txt.htmlText = tostring(name)
     if name == "Default" then
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
     end
@@ -28,29 +27,8 @@ local function LookForItemColorBoost(item)
     return itemColor
 end
 
---- @param item EclItem
-function PrepareDye(item)
-    currentItem = item
-    local ui = Ext.GetUI("LXN_Dye")
-    ui:SetCustomIcon("dye_equipment", item.RootTemplate.Icon, 57, 57)
-    local root = ui:GetRoot()
-    root.dyer_mc.equipment_txt.htmlText = item.DisplayName or item.CustomDisplayName
-    local itemDye = LookForItemColorBoost(item)
-    root.dyer_mc.visible = true
-    if root.dyer_mc.tabButton1_mc.activated then
-        if not itemDye then
-            root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
-            root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
-        else
-            root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
-            local cSet = dyes[itemDye]
-            ChangeDyerMcColors(cSet.Name, cSet.Colors)
-        end
-    end
-end
-
 ---@param item EclItem
-function DyeItem(item, dye)
+function DyeItem(item, dye, fromPeer)
     if item.Stats.WeaponType or item.Stats.Slot then
         item.ItemColorOverride = dye
     end
@@ -61,12 +39,50 @@ function DyeItem(item, dye)
         item.Stats.DynamicStats[1].ItemColor = ""
         item.Stats.StatsEntry.ItemGroup = Ext.GetStat(item.StatsId).ItemGroup
     end
-    Ext.PostMessageToServer("DyeItem", Ext.JsonStringify({
-        Item = item.NetID,
-        Dye = dye,
-        InInventory = Ext.HandleToDouble(item.InventoryParentHandle) ~= 0
-    }))
+    if not fromPeer then
+        Ext.Net.PostMessageToServer("DyeItem", Ext.JsonStringify({
+            Item = item.NetID,
+            Dye = dye,
+            InInventory = Ext.HandleToDouble(item.InventoryParentHandle) ~= 0
+        }))
+    end
 end
+
+local function DyeItemCustom(item, primary, secondary, tertiary, fromPeer)
+    for dye, colors in pairs(customDyes) do
+        if colors[1] == primary and colors[2] == secondary and colors[3] == tertiary then
+            DyeItem(item, dye, false)
+            return
+        end
+    end
+    --- Would a 72 bits (24*3) number as the index be better ?
+    local dye = "CUSTOM_"..tostring(primary)..tostring(secondary)..tostring(tertiary)
+    customDyes[dye] = {primary, secondary, tertiary}
+    Ext.Stats.ItemColor.Update({Name=dye, Color1=primary, Color2=secondary, Color3=tertiary})
+    if item.Stats.WeaponType or item.Stats.Slot then
+        item.ItemColorOverride = dye
+    end
+    item.Stats.DynamicStats[1].ItemColor = dye
+    item.Stats.StatsEntry.ItemGroup = ""
+    if not fromPeer then
+        Ext.Net.PostMessageToServer("DyeItem", Ext.JsonStringify({
+            Item = item.NetID,
+            Dye = "CUSTOM",
+            Colors = {primary, secondary, tertiary},
+            InInventory = Ext.HandleToDouble(item.InventoryParentHandle) ~= 0
+        }))
+    end
+end
+
+-- All clients need to sync the dye calls
+Ext.RegisterNetListener("DyeItemClient", function(call, payload)
+    local infos = Ext.JsonParse(payload)
+    if infos.Dye == "CUSTOM" then
+        DyeItemCustom(Ext.GetItem(tonumber(infos.Item)), infos.Colors[1], infos.Colors[2], infos.Colors[3], true)
+    else
+        DyeItem(Ext.GetItem(tonumber(infos.Item)), infos.Dye, true)
+    end
+end)
 
 ---@param item EclItem
 ---@param tooltip TooltipData
@@ -75,9 +91,12 @@ local function EquipmentTooltips(item, tooltip)
 	-- if item.ItemType ~= "Weapon" then return end
     if item.Stats then
         local dye = LookForItemColorBoost(item)
-        if dye and dye ~= "Default" then
+        if dye and Ext.Stats.ItemColor.Get(dye) and dye ~= "Default" and string.match(dye, "CUSTOM", 1) == null then
             local description = tooltip:GetElement("ItemDescription")
             description.Label = description.Label.."\nDye : <font color=\""..dyes[dye].Colors[1].."\">"..dyes[dye].Name.."</font>"
+        elseif string.match(dye, "CUSTOM", 1) ~= null then
+            local description = tooltip:GetElement("ItemDescription")
+            description.Label = description.Label.."\nDye : Custom"
         end
     end
 end
@@ -100,8 +119,42 @@ end)
 
 --- @param root UIObject
 local function SetupBuiltinDyes(root)
+    root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
+    root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
     for i, infos, color in pairs (dyes) do
         root.addEntry(color, infos.Name, tonumber("0x"..infos.Colors[1]), tonumber("0x"..infos.Colors[2]), tonumber("0x"..infos.Colors[3]))
+    end
+end
+
+--- @param root UIObject
+local function SetupCustomDyes(root)
+    root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
+    root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
+    if #customDyes > 0 then
+        for i, infos, color in pairs(customDyes) do
+            root.addEntry(color, infos.Name, tonumber("0x"..infos.Colors[1]), tonumber("0x"..infos.Colors[2]), tonumber("0x"..infos.Colors[3]))
+        end
+    end
+end
+
+local function SetupColorSelector(root, itemDye)
+    root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.text_txt.htmlText = ""
+    root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.cSet_mc.visible = false
+    if not itemDye then
+        root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
+        root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
+    elseif string.match(itemDye, "CUSTOM", 1) ~= null then
+        root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
+        local cSet = Ext.Stats.ItemColor.Get(itemDye)
+        ChangeDyerMcColors("Custom", {
+            string.format("%x", cSet.Color1),
+            string.format("%x", cSet.Color2),
+            string.format("%x", cSet.Color3)
+        })
+    -- else
+    --     root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
+    --     local cSet = dyes[itemDye]
+    --     ChangeDyerMcColors(cSet.Name, cSet.Colors)
     end
 end
 
@@ -111,15 +164,10 @@ local function SetupActiveTab(root, item)
     local itemDye = LookForItemColorBoost(currentItem)
     if root.dyer_mc.tabButton1_mc.activated then
         SetupBuiltinDyes(root)
-        if not itemDye then
-            root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
-            root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
-        else
-            root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
-            local cSet = dyes[itemDye]
-            ChangeDyerMcColors(cSet.Name, cSet.Colors)
-        end
+        SetupColorSelector(root, itemDye)
     elseif root.dyer_mc.tabButton2_mc then
+        SetupCustomDyes(root)
+        SetupColorSelector(root, itemDye)
     elseif root.dyer_mc.tabButton3_mc then
     end
 end
@@ -133,9 +181,41 @@ local function ApplyDyeButtonPressed(root)
             ChangeDyerMcColors("Default", {"000000", "000000", "000000"})
             return
         end
-        local cSet = dyes[dye]
-        ChangeDyerMcColors(cSet.Name, cSet.Colors)
+        local cSet = Ext.Stats.ItemColor.Get(dye)
+        local name = ""
+        if string.match(dye, "CUSTOM", 1) ~= null then
+            name = "Custom"
+        else
+            name = dyes[dye].Name
+        end
+        ChangeDyerMcColors(name, {
+            string.format("%x", cSet.Color1),
+            string.format("%x", cSet.Color2),
+            string.format("%x", cSet.Color3)
+        })
+    elseif root.dyer_mc.colorMaker_mc.visible then
+        local primary = ((root.dyer_mc.colorMaker_mc.colorButton1_mc.red & 0x0ff)<<16|
+                        ((root.dyer_mc.colorMaker_mc.colorButton1_mc.green & 0x0ff)<<8)|
+                        (root.dyer_mc.colorMaker_mc.colorButton1_mc.blue & 0x0ff))
+        local secondary = ((root.dyer_mc.colorMaker_mc.colorButton2_mc.red & 0x0ff)<<16|
+                        ((root.dyer_mc.colorMaker_mc.colorButton2_mc.green & 0x0ff)<<8)|
+                        (root.dyer_mc.colorMaker_mc.colorButton2_mc.blue & 0x0ff))
+        local tertiary = ((root.dyer_mc.colorMaker_mc.colorButton3_mc.red & 0x0ff)<<16|
+                        ((root.dyer_mc.colorMaker_mc.colorButton3_mc.green & 0x0ff)<<8)|
+                        (root.dyer_mc.colorMaker_mc.colorButton3_mc.blue & 0x0ff))
+        DyeItemCustom(currentItem, primary, secondary, tertiary)
     end
+end
+
+--- @param item EclItem
+function PrepareDye(item)
+    currentItem = item
+    local ui = Ext.GetUI("LXN_Dye")
+    ui:SetCustomIcon("dye_equipment", item.RootTemplate.Icon, 57, 57)
+    local root = ui:GetRoot()
+    root.dyer_mc.equipment_txt.htmlText = item.DisplayName or item.CustomDisplayName
+    root.dyer_mc.visible = true
+    SetupActiveTab(root, item)
 end
 
 Ext.RegisterListener("SessionLoaded", function()
@@ -143,7 +223,6 @@ Ext.RegisterListener("SessionLoaded", function()
     Ext.CreateUI("LXN_Dye", "Public/lx_dye_4d23677f-beef-4a9e-87ac-c885e1be39a4/Game/GUI/dye.swf", 10)
     local ui = Ext.GetUI("LXN_Dye")
     local root = ui:GetRoot()
-    root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
     root.dyer_mc.visible = false
     root.dyer_mc.tabButton1_mc.text_txt.htmlText = "Standard"
     root.dyer_mc.tabButton2_mc.text_txt.htmlText = "Saved"
