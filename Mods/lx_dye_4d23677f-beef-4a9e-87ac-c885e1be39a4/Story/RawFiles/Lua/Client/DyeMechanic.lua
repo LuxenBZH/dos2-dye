@@ -1,7 +1,7 @@
 local currentItem
 
 local function ChangeDyerMcColors(name, colors)
-    local root = Ext.GetUI("LXN_Dye"):GetRoot()
+    local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
     root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
     root.dyer_mc.colorSelector_mc.cSet_mc.changePartColor(0, tonumber("0x"..colors[1]))
     root.dyer_mc.colorSelector_mc.cSet_mc.changePartColor(1, tonumber("0x"..colors[2]))
@@ -40,10 +40,21 @@ function DyeItem(item, dye, fromPeer)
         item.Stats.StatsEntry.ItemGroup = Ext.GetStat(item.StatsId).ItemGroup
     end
     if not fromPeer then
-        Ext.Net.PostMessageToServer("DyeItem", Ext.JsonStringify({
+        -- Force refresh on the character sheet (doesn't work on possessed NPCs)
+        local ui = Ext.GetBuiltinUI("Public/Game/GUI/characterSheet.swf")
+        local root = ui:GetRoot()
+        local helmet = root.stats_mc.equip_mc.helmet_mc.stateID
+        if helmet == 0 then
+            ui:ExternalInterfaceCall("setHelmetOption", 1)
+            ui:ExternalInterfaceCall("setHelmetOption", 0)
+        else
+            ui:ExternalInterfaceCall("setHelmetOption", 0)
+            ui:ExternalInterfaceCall("setHelmetOption", 1)
+        end
+        Ext.Net.PostMessageToServer("DyeItem", Ext.Json.Stringify({
             Item = item.NetID,
             Dye = dye,
-            InInventory = Ext.HandleToDouble(item.InventoryParentHandle) ~= 0
+            InInventory = Ext.UI.HandleToDouble(item.InventoryParentHandle) ~= 0
         }))
     end
 end
@@ -56,7 +67,7 @@ local function DyeItemCustom(item, primary, secondary, tertiary, fromPeer)
         end
     end
     --- Would a 72 bits (24*3) number as the index be better ?
-    local dye = "CUSTOM_"..tostring(primary)..tostring(secondary)..tostring(tertiary)
+    local dye = "CUSTOM_"..tostring(primary).."-"..tostring(secondary).."-"..tostring(tertiary)
     customDyes[dye] = {primary, secondary, tertiary}
     Ext.Stats.ItemColor.Update({Name=dye, Color1=primary, Color2=secondary, Color3=tertiary})
     if item.Stats.WeaponType or item.Stats.Slot then
@@ -65,7 +76,18 @@ local function DyeItemCustom(item, primary, secondary, tertiary, fromPeer)
     item.Stats.DynamicStats[1].ItemColor = dye
     item.Stats.StatsEntry.ItemGroup = ""
     if not fromPeer then
-        Ext.Net.PostMessageToServer("DyeItem", Ext.JsonStringify({
+        -- Force refresh on the character sheet (doesn't work on possessed NPCs)
+        local ui = Ext.GetBuiltinUI("Public/Game/GUI/characterSheet.swf")
+        local root = ui:GetRoot()
+        local helmet = root.stats_mc.equip_mc.helmet_mc.stateID
+        if helmet == 0 then
+            ui:ExternalInterfaceCall("setHelmetOption", 1)
+            ui:ExternalInterfaceCall("setHelmetOption", 0)
+        else
+            ui:ExternalInterfaceCall("setHelmetOption", 0)
+            ui:ExternalInterfaceCall("setHelmetOption", 1)
+        end
+        Ext.Net.PostMessageToServer("DyeItem", Ext.Json.Stringify({
             Item = item.NetID,
             Dye = "CUSTOM",
             Colors = {primary, secondary, tertiary},
@@ -76,12 +98,13 @@ end
 
 -- All clients need to sync the dye calls
 Ext.RegisterNetListener("DyeItemClient", function(call, payload)
-    local infos = Ext.JsonParse(payload)
+    local infos = Ext.Json.Parse(payload)
     if infos.Dye == "CUSTOM" then
-        DyeItemCustom(Ext.GetItem(tonumber(infos.Item)), infos.Colors[1], infos.Colors[2], infos.Colors[3], true)
+        DyeItemCustom(Ext.Entity.GetItem(tonumber(infos.Item)), infos.Colors[1], infos.Colors[2], infos.Colors[3], true)
     else
-        DyeItem(Ext.GetItem(tonumber(infos.Item)), infos.Dye, true)
+        DyeItem(Ext.Entity.GetItem(tonumber(infos.Item)), infos.Dye, true)
     end
+    Ext.Net.PostMessageToServer("DyeItemApply", payload)
 end)
 
 ---@param item EclItem
@@ -94,25 +117,24 @@ local function EquipmentTooltips(item, tooltip)
         if dye and Ext.Stats.ItemColor.Get(dye) and dye ~= "Default" and string.match(dye, "CUSTOM", 1) == null then
             local description = tooltip:GetElement("ItemDescription")
             description.Label = description.Label.."\nDye : <font color=\""..dyes[dye].Colors[1].."\">"..dyes[dye].Name.."</font>"
-        elseif string.match(dye, "CUSTOM", 1) ~= null then
+        elseif dye and string.match(dye, "CUSTOM", 1) ~= null then
             local description = tooltip:GetElement("ItemDescription")
             description.Label = description.Label.."\nDye : Custom"
         end
     end
 end
 
-local function LXN_Tooltips_Dye_Init()
+local function LXN_Tooltips_Dye_Init(e)
     Game.Tooltip.RegisterListener("Item", nil, EquipmentTooltips)
 end
 
-Ext.RegisterListener("SessionLoaded", LXN_Tooltips_Dye_Init)
+Ext.Events.SessionLoaded:Subscribe(LXN_Tooltips_Dye_Init)
 
 Ext.RegisterNetListener("DyeSetup", function(call, payload)
     local items = Ext.JsonParse(payload)
     Ext.Dump(items)
     for netid, color in pairs(items) do
         local item = Ext.GetItem(tonumber(netid))
-        Ext.Print(item, color)
         DyeItem(item, color)
     end
 end)
@@ -146,6 +168,8 @@ local function SetupColorSelector(root, itemDye)
     elseif string.match(itemDye, "CUSTOM", 1) ~= null then
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
         local cSet = Ext.Stats.ItemColor.Get(itemDye)
+        -- if not cSet then
+        --     Ext.Stats.ItemColor.Update()
         ChangeDyerMcColors("Custom", {
             string.format("%x", cSet.Color1),
             string.format("%x", cSet.Color2),
@@ -175,7 +199,6 @@ end
 local function ApplyDyeButtonPressed(root)
     if root.dyer_mc.colorSelector_mc.visible then
         local dye = root.dyer_mc.colorSelector_mc.ddCombo_mc.color_id
-        Ext.Print(dye)
         DyeItem(currentItem, dye)
         if dye == "Default" then
             ChangeDyerMcColors("Default", {"000000", "000000", "000000"})
@@ -218,10 +241,10 @@ function PrepareDye(item)
     SetupActiveTab(root, item)
 end
 
-Ext.RegisterListener("SessionLoaded", function()
-    if Ext.GameVersion() == "v3.6.51.9303" then return end
-    Ext.CreateUI("LXN_Dye", "Public/lx_dye_4d23677f-beef-4a9e-87ac-c885e1be39a4/Game/GUI/dye.swf", 10)
-    local ui = Ext.GetUI("LXN_Dye")
+Ext.Events.SessionLoaded:Subscribe(function(e)
+    if Ext.Utils.GameVersion() == "v3.6.51.9303" then return end
+    Ext.UI.Create("LXN_Dye", "Public/lx_dye_4d23677f-beef-4a9e-87ac-c885e1be39a4/Game/GUI/dye.swf", 10)
+    local ui = Ext.UI.GetByName("LXN_Dye")
     local root = ui:GetRoot()
     root.dyer_mc.visible = false
     root.dyer_mc.tabButton1_mc.text_txt.htmlText = "Standard"
@@ -232,31 +255,30 @@ Ext.RegisterListener("SessionLoaded", function()
     SetupBuiltinDyes(root)
 
     Ext.RegisterUICall(ui, "dye_setTab", function(arg1, call, tab)
-        Ext.Print(tab)
-        local ui = Ext.GetUI("LXN_Dye")
+        local ui = Ext.UI.GetByName("LXN_Dye")
         local root = ui:GetRoot()
         SetupActiveTab(root, current)
     end)
     
     Ext.RegisterUICall(ui, "dye_apply", function(...)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         ApplyDyeButtonPressed(root)
     end)
     Ext.RegisterUICall(ui, "dye_close", function(...)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         currentItem = nil
         root.dyer_mc.visible = false
     end)
     Ext.RegisterUICall(ui, "dye_tab2", function(...)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         root.dyer_mc.colorSelector_mc.delete_mc.visible = true
     end)
     Ext.RegisterUICall(ui, "dye_tab1", function(...)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         root.dyer_mc.colorSelector_mc.delete_mc.visible = false
     end)
     Ext.RegisterUICall(ui, "dye_redSlider", function(ui, call, value)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         root.dyer_mc.colorMaker_mc.activated_mc.red = value
         root.dyer_mc.colorMaker_mc.activated_mc.cSquare_mc.changeColor(
             ((root.dyer_mc.colorMaker_mc.activated_mc.red & 0x0ff)<<16|
@@ -266,7 +288,7 @@ Ext.RegisterListener("SessionLoaded", function()
         root.dyer_mc.colorMaker_mc.redValue_txt.htmlText = value
     end)
     Ext.RegisterUICall(ui, "dye_greenSlider", function(ui, call, value)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         root.dyer_mc.colorMaker_mc.activated_mc.green = value
         root.dyer_mc.colorMaker_mc.activated_mc.cSquare_mc.changeColor(
             ((root.dyer_mc.colorMaker_mc.activated_mc.red & 0x0ff)<<16|
@@ -276,7 +298,7 @@ Ext.RegisterListener("SessionLoaded", function()
         root.dyer_mc.colorMaker_mc.greenValue_txt.htmlText = value
     end)
     Ext.RegisterUICall(ui, "dye_blueSlider", function(ui, call, value)
-        local root = Ext.GetUI("LXN_Dye"):GetRoot()
+        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         root.dyer_mc.colorMaker_mc.activated_mc.blue = value
         root.dyer_mc.colorMaker_mc.activated_mc.cSquare_mc.changeColor(
             ((root.dyer_mc.colorMaker_mc.activated_mc.red & 0x0ff)<<16|
@@ -289,7 +311,7 @@ end)
 
 Ext.RegisterListener("GameStateChanged", function(fromState, toState)
     if toState == "Running" and fromState ~= "GameMasterPause" then
-        Ext.PostMessageToServer("DyeFetchList", "")
+        Ext.Net.PostMessageToServer("DyeFetchList", "")
     end
 end)
 

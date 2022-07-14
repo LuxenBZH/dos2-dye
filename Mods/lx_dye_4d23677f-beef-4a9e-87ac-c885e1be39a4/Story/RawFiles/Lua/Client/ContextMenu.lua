@@ -26,15 +26,18 @@ if Mods.LeaderLib then
         if Game.Tooltip.IsOpen() then
             ---@type TooltipCustomStatRequest
             local request = Game.Tooltip.GetCurrentOrLastRequest()
-            local character = Ext.GetCharacter(Ext.Entity.GetInventory(Ext.GetItem(Ext.DoubleToHandle(request.ObjectHandleDouble)).InventoryParentHandle).ParentHandle)
+            -- You can only dye an item that is in a character inventory
+            local parentInventory = Ext.Entity.GetItem(Ext.UI.DoubleToHandle(request.ObjectHandleDouble)).InventoryParentHandle
+            if not Ext.Utils.IsValidHandle(parentInventory) then return end
+            local character = Ext.Entity.GetCharacter(Ext.Entity.GetInventory(parentInventory).ParentHandle)
             if not character then return end
             local infos = {
-                Context = Ext.GetItem(request.ItemNetID),
+                Context = Ext.Entity.GetItem(request.ItemNetID),
                 Character = character.NetID
             }
             contextMenu:AddBuiltinEntry("LXN_Dye", function(cMenu, ui, id, actionID, handle)
-                local root = Ext.GetUI("LXN_Dye"):GetRoot()
-                PrepareDye(Ext.GetItem(Ext.DoubleToHandle(request.ObjectHandleDouble)))
+                local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
+                PrepareDye(Ext.Entity.GetItem(Ext.UI.DoubleToHandle(request.ObjectHandleDouble)))
             end, "Dye")
         end
     end)

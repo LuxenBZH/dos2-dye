@@ -18,7 +18,7 @@ setmetatable(customDyesNames, {
     end
 })
 
-Ext.RegisterListener("SessionStarted", function()
+Ext.Events.SessionLoaded:Subscribe(function(e)
     if PersistentVars.CustomDyes then
         for name,color in pairs(PersistentVars.CustomDyesNames) do
             customDyesNames[name] = color
