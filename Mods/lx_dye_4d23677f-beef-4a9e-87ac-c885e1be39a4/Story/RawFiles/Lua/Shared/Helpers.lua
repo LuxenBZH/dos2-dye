@@ -1,3 +1,4 @@
+--- @param table array[]
 function GetTableSize(table)
     if table == nil then return 0 end
     local i = 0

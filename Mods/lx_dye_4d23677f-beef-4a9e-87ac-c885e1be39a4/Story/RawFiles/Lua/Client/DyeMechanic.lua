@@ -131,11 +131,20 @@ end
 Ext.Events.SessionLoaded:Subscribe(LXN_Tooltips_Dye_Init)
 
 Ext.RegisterNetListener("DyeSetup", function(call, payload)
-    local items = Ext.JsonParse(payload)
-    Ext.Dump(items)
+    local items = Ext.Json.Parse(payload)
+    -- Ext.Dump(items)
     for netid, color in pairs(items) do
-        local item = Ext.GetItem(tonumber(netid))
-        DyeItem(item, color)
+        if string.match(color, "CUSTOM", 1) ~= null then
+            local color = LookForItemColorBoost(Ext.Entity.GetItem(tonumber(netid)))
+            if string.match(color, "CUSTOM", 1) ~= null then
+                local color1 = string.gsub(color, "CUSTOM_", ""):gsub("-.*", "")
+                local color2 = string.gsub(color, "CUSTOM_[0-9]+-", ""):gsub("-.*", "")
+                local color3 = string.gsub(color, "CUSTOM_.*-", "")
+                Ext.Stats.ItemColor.Update({Name = color, Color1 = color1, Color2 = color2, Color3 = color3})
+            end
+        end
+        local item = Ext.Entity.GetItem(tonumber(netid))
+        DyeItem(item, color, true)
     end
 end)
 
@@ -199,7 +208,15 @@ end
 local function ApplyDyeButtonPressed(root)
     if root.dyer_mc.colorSelector_mc.visible then
         local dye = root.dyer_mc.colorSelector_mc.ddCombo_mc.color_id
+        if not Ext.Stats.ItemColor.Get(dye) then
+            local color1 = string.gsub(color, "CUSTOM_", ""):gsub("-.*", "")
+            local color2 = string.gsub(color, "CUSTOM_[0-9]+-", ""):gsub("-.*", "")
+            local color3 = string.gsub(color, "CUSTOM_.*-", "")
+            Ext.Stats.ItemColor.Update({Name = color, Color1 = color1, Color2 = color2, Color3 = color3})
+        end
+        _D(dye)
         DyeItem(currentItem, dye)
+
         if dye == "Default" then
             ChangeDyerMcColors("Default", {"000000", "000000", "000000"})
             return
