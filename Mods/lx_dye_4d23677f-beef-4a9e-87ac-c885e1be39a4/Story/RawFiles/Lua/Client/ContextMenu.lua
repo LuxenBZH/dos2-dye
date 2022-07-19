@@ -29,16 +29,18 @@ if Mods.LeaderLib then
             -- You can only dye an item that is in a character inventory
             local parentInventory = Ext.Entity.GetItem(Ext.UI.DoubleToHandle(request.ObjectHandleDouble)).InventoryParentHandle
             if not Ext.Utils.IsValidHandle(parentInventory) then return end
-            local character = Ext.Entity.GetCharacter(Ext.Entity.GetInventory(parentInventory).ParentHandle)
+            local character = Ext.Entity.GetCharacter(Ext.Entity.GetInventory(parentInventory).ParentHandle) --- @type EclCharacter
             if not character then return end
             local infos = {
                 Context = Ext.Entity.GetItem(request.ItemNetID),
                 Character = character.NetID
             }
-            contextMenu:AddBuiltinEntry("LXN_Dye", function(cMenu, ui, id, actionID, handle)
-                local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
-                PrepareDye(Ext.Entity.GetItem(Ext.UI.DoubleToHandle(request.ObjectHandleDouble)))
-            end, "Dye")
+            if not character.InCombat then
+                contextMenu:AddBuiltinEntry("LXN_Dye", function(cMenu, ui, id, actionID, handle)
+                    local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
+                    PrepareDye(Ext.Entity.GetItem(Ext.UI.DoubleToHandle(request.ObjectHandleDouble)))
+                end, "Dye")
+            end
         end
     end)
 

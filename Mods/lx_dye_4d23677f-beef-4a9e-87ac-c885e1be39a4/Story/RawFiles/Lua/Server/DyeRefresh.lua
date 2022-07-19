@@ -15,7 +15,9 @@ local function RefreshCharacterDyes(infos)
         local inventory = GetInventoryOwner(item.MyGuid)
         if ObjectIsCharacter(inventory) == 1 then
             -- _P("Applying refresh...", inventory)
+            -- /!\ Don't forget to remove it for characters in combat, and don't apply it on characters that are already polymorphed
             ApplyStatus(inventory, "FANE_ELF", 0.0, 1, inventory) -- Only POLYMORPHED statuses can refresh the entire armor
+            RemoveStatus(inventory, "FANE_ELF")
             if Ext.Entity.GetCharacter(inventory).IsPossessed then
                 local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
                 PersistentVars.DyedItems[levelKey][item.MyGuid] = true

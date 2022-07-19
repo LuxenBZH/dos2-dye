@@ -7,3 +7,14 @@ function GetTableSize(table)
     end
     return i
 end
+
+--- @param character string | EsvCharacter
+function CharacterIsPolymorphed(character)
+    if type(character) == "string" then
+        character = Ext.Entity.GetCharacter(character)
+    end
+    if character:GetStatusByType("POLYMORPHED") then
+        return true
+    end
+    return false
+end
