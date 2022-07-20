@@ -18,15 +18,25 @@ setmetatable(customDyesNames, {
     end
 })
 
-Ext.Events.SessionLoaded:Subscribe(function(e)
-    if PersistentVars.CustomDyes then
-        for name,color in pairs(PersistentVars.CustomDyesNames) do
-            customDyesNames[name] = color
-        end
-        table.sort(_order)
+local function LoadCustomDyes()
+    local content = Ext.IO.LoadFile("Dyes.json")
+    if content then
+        content = Ext.Json.Parse(content)
     end
+    for name, dye in pairs(content) do
+        customDyesNames[name] = dye
+    end
+    table.sort(_order)
+end
+
+Ext.Events.SessionLoaded:Subscribe(function(e)
+    LoadCustomDyes()
 end)
 
+local function SaveCustomDye(name, dye)
+    customDyesNames[name] = dye
+    Ext.IO.SaveFile("Dyes.json", Ext.Json.Stringify(customDyesNames))
+end
 
 -- customDyesNames["Default"] = {Name="Default", Color1=}
 -- table.sort(_order)

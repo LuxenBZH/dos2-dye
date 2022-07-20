@@ -1,5 +1,8 @@
 local currentItem
 
+--- Update the drop down menu colors and name
+--- @param name string Name of the dye
+--- @param colors integer[] Colors of the dye in integer format
 local function ChangeDyerMcColors(name, colors)
     local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
     root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
@@ -12,6 +15,7 @@ local function ChangeDyerMcColors(name, colors)
     end
 end
 
+--- @param item EclItem
 local function LookForItemColorBoost(item)
     if not item then return nil end
     local i = 1
@@ -27,7 +31,10 @@ local function LookForItemColorBoost(item)
     return itemColor
 end
 
----@param item EclItem
+--- Call this to dye an item if the dye already exists
+--- @param item EclItem
+--- @param dye string
+--- @param fromPeer boolean Won't call the server for a refresh if true
 function DyeItem(item, dye, fromPeer)
     if item.Stats.WeaponType or item.Stats.Slot then
         item.ItemColorOverride = dye
@@ -59,6 +66,12 @@ function DyeItem(item, dye, fromPeer)
     end
 end
 
+--- Call this to dye an item from a custom input
+--- @param item EclItem
+--- @param primary integer
+--- @param secondary integer
+--- @param tertiary integer
+--- @param fromPeer bool
 local function DyeItemCustom(item, primary, secondary, tertiary, fromPeer)
     for dye, colors in pairs(customDyes) do
         if colors[1] == primary and colors[2] == secondary and colors[3] == tertiary then
@@ -107,29 +120,6 @@ Ext.RegisterNetListener("DyeItemClient", function(call, payload)
     Ext.Net.PostMessageToServer("DyeItemApply", payload)
 end)
 
----@param item EclItem
----@param tooltip TooltipData
-local function EquipmentTooltips(item, tooltip)
-    if tooltip == nil then return end
-	-- if item.ItemType ~= "Weapon" then return end
-    if item.Stats then
-        local dye = LookForItemColorBoost(item)
-        if dye and Ext.Stats.ItemColor.Get(dye) and dye ~= "Default" and string.match(dye, "CUSTOM", 1) == null then
-            local description = tooltip:GetElement("ItemDescription")
-            description.Label = description.Label.."\nDye : <font color=\""..dyes[dye].Colors[1].."\">"..dyes[dye].Name.."</font>"
-        elseif dye and string.match(dye, "CUSTOM", 1) ~= null then
-            local description = tooltip:GetElement("ItemDescription")
-            description.Label = description.Label.."\nDye : Custom"
-        end
-    end
-end
-
-local function LXN_Tooltips_Dye_Init(e)
-    Game.Tooltip.RegisterListener("Item", nil, EquipmentTooltips)
-end
-
-Ext.Events.SessionLoaded:Subscribe(LXN_Tooltips_Dye_Init)
-
 Ext.RegisterNetListener("DyeSetup", function(call, payload)
     local items = Ext.Json.Parse(payload)
     -- Ext.Dump(items)
@@ -148,6 +138,7 @@ Ext.RegisterNetListener("DyeSetup", function(call, payload)
     end
 end)
 
+--- Used to setup the first tab drop down menu
 --- @param root UIObject
 local function SetupBuiltinDyes(root)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
@@ -157,13 +148,14 @@ local function SetupBuiltinDyes(root)
     end
 end
 
+--- Used to setup the second tab drop down menu
 --- @param root UIObject
 local function SetupCustomDyes(root)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
     root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
-    if #customDyes > 0 then
-        for i, infos, color in pairs(customDyes) do
-            root.addEntry(color, infos.Name, tonumber("0x"..infos.Colors[1]), tonumber("0x"..infos.Colors[2]), tonumber("0x"..infos.Colors[3]))
+    if GetTableSize(customDyesNames) > 0 then
+        for i, colors, name in pairs(customDyesNames) do
+            root.addEntry(name, name, tonumber("0x"..colors[1]), tonumber("0x"..colors[2]), tonumber("0x"..colors[3]))
         end
     end
 end
