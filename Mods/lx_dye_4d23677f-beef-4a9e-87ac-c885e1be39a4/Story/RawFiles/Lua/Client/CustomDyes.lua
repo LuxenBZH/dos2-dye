@@ -3,7 +3,7 @@ customDyes = {}
 customDyesNames = {}
 -- Credits : LaughingLeader
 -- Alphabetical ordering of the dye terms
-setmetatable(customDyesNames, {
+local metaOrdering = {
     __newindex = function(tbl,k,v)
         _order[#_order+1] = k
         rawset(tbl, k, v)
@@ -16,26 +16,37 @@ setmetatable(customDyesNames, {
         end
         return stateless_iter, tbl, 0
     end
-})
+}
+setmetatable(customDyesNames, metaOrdering)
+
 
 local function LoadCustomDyes()
-    local content = Ext.IO.LoadFile("Dyes.json")
+    _order = {}
+    customDyesNames = {}
+    setmetatable(customDyesNames, metaOrdering)
+    local content = Ext.Json.Parse(Ext.IO.LoadFile("Dyes.json"))
     if content then
-        content = Ext.Json.Parse(content)
+        for name, dye in pairs(content) do
+            customDyesNames[name] = dye
+        end
+        table.sort(_order)
     end
-    for name, dye in pairs(content) do
-        customDyesNames[name] = dye
-    end
-    table.sort(_order)
 end
 
 Ext.Events.SessionLoaded:Subscribe(function(e)
     LoadCustomDyes()
 end)
 
-local function SaveCustomDye(name, dye)
+function SaveCustomDye(name, dye)
     customDyesNames[name] = dye
     Ext.IO.SaveFile("Dyes.json", Ext.Json.Stringify(customDyesNames))
+    table.sort(_order)
+end
+
+function RemoveCustomDye(name)
+    customDyesNames[name] = nil
+    Ext.IO.SaveFile("Dyes.json", Ext.Json.Stringify(customDyesNames))
+    LoadCustomDyes()
 end
 
 -- customDyesNames["Default"] = {Name="Default", Color1=}
