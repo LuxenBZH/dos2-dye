@@ -9,25 +9,25 @@ Ext.RegisterNetListener("DyeItem", function(call, payload)
     Ext.Net.BroadcastMessage("DyeItemClient", payload)
 end)
 
+---@param infos DyeNetMessage
 local function RefreshCharacterDyes(infos)
     local item = Ext.Entity.GetItem(tonumber(infos.Item)) --- @type EsvItem
     if infos.InInventory then
         local inventory = GetInventoryOwner(item.MyGuid)
         if ObjectIsCharacter(inventory) == 1 then
             -- _P("Applying refresh...", inventory)
-            -- /!\ Don't forget to remove it for characters in combat, and don't apply it on characters that are already polymorphed
-            ApplyStatus(inventory, "FANE_ELF", 0.0, 1, inventory) -- Only POLYMORPHED statuses can refresh the entire armor
+            ApplyStatus(inventory, "DYE_APPLY", 0.0, 1, inventory) -- Only POLYMORPHED statuses can refresh the entire armor
             if CharacterIsInCombat(inventory) == 1 then
-                RemoveStatus(inventory, "FANE_ELF")
+                RemoveStatus(inventory, "DYE_APPLY")
             end
             if Ext.Entity.GetCharacter(inventory).IsPossessed then
-                local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
-                PersistentVars.DyedItems[levelKey][item.MyGuid] = true
+                local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+                PersistentVars.DyedItems[levelKey][GetUUID(item.MyGuid)] = true
             end
         end
     else
-        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
-        PersistentVars.DyedItems[levelKey][item.MyGuid] = true
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+        PersistentVars.DyedItems[levelKey][GetUUID(item.MyGuid)] = true
         Transform(item.MyGuid, item.RootTemplate.Id, 0, 0, 0)
     end
     if infos.Dye == "Default" then
@@ -75,7 +75,7 @@ end
 
 -- Send the list of dyed items to the clients to refresh and remove deleted/undyed items
 Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
-    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
     local netIDs = {}
     for guid,bool in pairs(PersistentVars.DyedItems[levelKey]) do
         if ObjectExists(guid) == 0 then
@@ -84,28 +84,33 @@ Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
             netIDs[Ext.Entity.GetItem(guid).NetID] = NRD_ItemGetPermanentBoostString(guid, "ItemColor")
         end
     end
-    Ext.PostMessageToUser(clientID, "DyeSetup", Ext.JsonStringify(TableConcat(netIDs, GetPlayersInventoriesDyes())))
+    Ext.Net.PostMessageToUser(clientID, "DyeSetup", Ext.Json.Stringify(TableConcat(netIDs, GetPlayersInventoriesDyes())))
 end)
 
 -- Create a table for a level if it doesn't exists yet
-Ext.RegisterOsirisListener("GameStarted", 2, "before", function(level, isEditor)
-    levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+---@param level string
+---@param isEditor integer
+Ext.Osiris.RegisterListener("GameStarted", 2, "before", function(level, isEditor)
+    levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
     if not PersistentVars.DyedItems[levelKey] then
         PersistentVars.DyedItems[levelKey] = {}
     end
 end)
 
 -- if a character drops an item, make sure it's included in the floating dyes list
-Ext.RegisterOsirisListener("ItemDropped", 1, "before", function(item)
-    if NRD_ItemGetPermanentBoostString(item, "ItemColor") ~= "" then
-        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+---@param item string
+Ext.Osiris.RegisterListener("ItemDropped", 1, "before", function(item)
+    if Ext.Entity.GetItem(item).Stats and NRD_ItemGetPermanentBoostString(item, "ItemColor") ~= "" then
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
         PersistentVars.DyedItems[levelKey][item] = true
     end
 end)
 
 -- if a player pickup a dyed item, it can be removed from the list since players are automatically scanned
-Ext.RegisterOsirisListener("ItemAddedToCharacter", 2, "before", function(item, character)
-    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+---@param item string
+---@param character string
+Ext.Osiris.RegisterListener("ItemAddedToCharacter", 2, "before", function(item, character)
+    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
     if Ext.GetGameState() == "Running" and PersistentVars.DyedItems[levelKey] and PersistentVars.DyedItems[levelKey][item] then
         local char = Ext.Entity.GetCharacter(character)
         if char.IsPlayer and not char.IsPossessed then
@@ -114,12 +119,15 @@ Ext.RegisterOsirisListener("ItemAddedToCharacter", 2, "before", function(item, c
     end
 end)
 
+---@param e EsvLuaGameStateChangeEventParams
 Ext.Events.GameStateChanged:Subscribe(function(e)
     if e.FromState == "GameMasterPause" and e.ToState == "Running" then
-        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.GetCurrentLevelData().UniqueKey or Ext.GetCurrentLevelData().LevelName
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
         for item, b in pairs(PersistentVars.DyedItems[levelKey]) do
-            item = Ext.Entity.GetItem(item)
-            if item.ParentInventoryHandle then
+            item = Ext.Entity.GetItem(item) --- @type EsvItem
+            if item.ParentInventoryHandle and
+                ObjectIsCharacter(Ext.Entity.GetInventory(item.ParentInventoryHandle).GUID) == 1 and
+                CharacterGetEquippedItem(Ext.Entity.GetCharacter(item.InventoryHandle).MyGuid, SlotsNames[item.Slot]) then
                 RefreshCharacterDyes({
                     Item = item.NetID,
                     Dye = NRD_ItemGetPermanentBoostString(item.MyGuid, "ItemColor"),

@@ -41,3 +41,26 @@ function LookForItemColorBoost(item)
     end
     return itemColor
 end
+
+SlotsNames = {
+	[0] = "Helmet",
+	[1] = "Breast",
+	[2] = "Leggings",
+	[3] = "Weapon",
+	[4] = "Shield",
+	[5] = "Ring",
+	[6] = "Belt",
+	[7] = "Boots",
+	[8] = "Gloves",
+	[9] = "Amulet",
+	[10] = "Ring2",
+	[11] = "Wings",
+	[12] = "Horns",
+	[13] = "Overhead",
+}
+
+---@class DyeNetMessage
+---@field Dye string
+---@field Item integer
+---@field InInventory boolean
+---@field Colors table

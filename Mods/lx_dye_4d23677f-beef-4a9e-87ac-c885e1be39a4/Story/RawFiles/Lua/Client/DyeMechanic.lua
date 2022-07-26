@@ -111,9 +111,9 @@ end)
 Ext.RegisterNetListener("DyeSetup", function(call, payload)
     local items = Ext.Json.Parse(payload)
     for netid, color in pairs(items) do
-        if string.match(color, "CUSTOM", 1) ~= null then
+        if string.match(color, "CUSTOM", 1) ~= "null" then
             local color = LookForItemColorBoost(Ext.Entity.GetItem(tonumber(netid)))
-            if string.match(color, "CUSTOM", 1) ~= null then
+            if string.match(color, "CUSTOM", 1) ~= "null" then
                 local color1 = tonumber("0x"..string.gsub(color, "CUSTOM_", ""):gsub("-.*", ""))
                 local color2 = tonumber("0x"..string.gsub(color, "CUSTOM_[a-z0-9]+-", ""):gsub("-.*", ""))
                 local color3 = tonumber("0x"..string.gsub(color, "CUSTOM_.*-", ""))
@@ -126,7 +126,7 @@ Ext.RegisterNetListener("DyeSetup", function(call, payload)
 end)
 
 --- Used to setup the first tab drop down menu
---- @param root UIObject
+--- @param root any|UIObject
 local function SetupBuiltinDyes(root)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
     root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
@@ -136,7 +136,7 @@ local function SetupBuiltinDyes(root)
 end
 
 --- Used to setup the second tab drop down menu
---- @param root UIObject
+--- @param root any|UIObject
 local function SetupCustomDyes(root)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.removeAll()
     root.addEntry("Default", "Default", tonumber("0x00"), tonumber("0x00"), tonumber("0x00"))
@@ -147,6 +147,8 @@ local function SetupCustomDyes(root)
     end
 end
 
+---@param root any|UIObject
+---@param itemDye string
 local function SetupColorSelector(root, itemDye)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.text_txt.htmlText = ""
     root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.cSet_mc.visible = false
@@ -170,7 +172,7 @@ local function SetupColorSelector(root, itemDye)
     end
 end
 
---- @param root UIObject
+--- @param root any|UIObject
 --- @param item EclItem
 local function SetupActiveTab(root, item)
     local itemDye = LookForItemColorBoost(currentItem)
@@ -184,6 +186,7 @@ local function SetupActiveTab(root, item)
     end
 end
 
+--- @param root any|UIObject
 local function ApplyDyeButtonPressed(root)
     if root.dyer_mc.colorSelector_mc.visible then
         local dye = root.dyer_mc.colorSelector_mc.ddCombo_mc.color_id
@@ -262,7 +265,7 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
     Ext.RegisterUICall(ui, "dye_setTab", function(arg1, call, tab)
         local ui = Ext.UI.GetByName("LXN_Dye")
         local root = ui:GetRoot()
-        SetupActiveTab(root, current)
+        SetupActiveTab(root, currentItem)
     end)
     
     Ext.RegisterUICall(ui, "dye_apply", function(...)

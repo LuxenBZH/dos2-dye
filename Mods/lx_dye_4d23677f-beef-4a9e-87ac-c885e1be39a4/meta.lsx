@@ -21,6 +21,13 @@
                             <attribute id="UUID" value="eedf7638-36ff-4f26-a50a-076b87d53ba0" type="22" />
                             <attribute id="Version" value="268435456" type="4" />
                         </node>
+                        <node id="ModuleShortDesc">
+                            <attribute id="Folder" value="LeaderLib_543d653f-446c-43d8-8916-54670ce24dd9" type="30" />
+                            <attribute id="MD5" value="" type="23" />
+                            <attribute id="Name" value="LeaderLib - Definitive Edition" type="22" />
+                            <attribute id="UUID" value="7e737d2f-31d2-4751-963f-be6ccc59cd0c" type="22" />
+                            <attribute id="Version" value="387186699" type="4" />
+                        </node>
                     </children>
                 </node>
                 <node id="ModuleInfo">

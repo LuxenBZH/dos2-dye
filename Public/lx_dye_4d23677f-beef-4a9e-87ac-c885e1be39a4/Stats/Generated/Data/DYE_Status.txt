@@ -1,7 +1,9 @@
 new entry "DYE_APPLY"
 type "StatusData"
-data "StatusType" "CONSUME"
+data "StatusType" "POLYMORPHED"
 data "StatsId" "Stats_LX_DyeApply"
+data "StackId" "Stack_LX_DyeApply"
+data "PolymorphResult" "98735d91-3d54-4083-922b-4b72c49c27ba"
 
 new entry "Stats_LX_DyeApply"
 type "Potion"
