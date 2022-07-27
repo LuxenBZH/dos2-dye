@@ -1,5 +1,6 @@
 ---@diagnostic disable: param-type-mismatch
 local currentItem
+local contextCharacter
 
 --- Update the drop down menu colors and name
 --- @param name string Name of the dye
@@ -108,23 +109,6 @@ Ext.RegisterNetListener("DyeItemClient", function(call, payload)
     Ext.Net.PostMessageToServer("DyeItemApply", payload)
 end)
 
-Ext.RegisterNetListener("DyeSetup", function(call, payload)
-    local items = Ext.Json.Parse(payload)
-    for netid, color in pairs(items) do
-        if string.match(color, "CUSTOM", 1) ~= "null" then
-            local color = LookForItemColorBoost(Ext.Entity.GetItem(tonumber(netid)))
-            if string.match(color, "CUSTOM", 1) ~= "null" then
-                local color1 = tonumber("0x"..string.gsub(color, "CUSTOM_", ""):gsub("-.*", ""))
-                local color2 = tonumber("0x"..string.gsub(color, "CUSTOM_[a-z0-9]+-", ""):gsub("-.*", ""))
-                local color3 = tonumber("0x"..string.gsub(color, "CUSTOM_.*-", ""))
-                Ext.Stats.ItemColor.Update({Name = color, Color1 = color1, Color2 = color2, Color3 = color3})
-            end
-        end
-        local item = Ext.Entity.GetItem(tonumber(netid)) ---@type EclItem
-        DyeItem(item, color, true)
-    end
-end)
-
 --- Used to setup the first tab drop down menu
 --- @param root any|UIObject
 local function SetupBuiltinDyes(root)
@@ -155,11 +139,12 @@ local function SetupColorSelector(root, itemDye)
     if not itemDye then
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
         root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
-    elseif string.match(itemDye, "CUSTOM", 1) ~= null then
+    elseif string.match(itemDye, "CUSTOM", 1) then
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
+        if not Ext.Stats.ItemColor.Get(itemDye) then
+            Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(itemDye))
+        end
         local cSet = Ext.Stats.ItemColor.Get(itemDye)
-        -- if not cSet then
-        --     Ext.Stats.ItemColor.Update()
         ChangeDyerMcColors("Custom", {
             string.format("%x", cSet.Color1),
             string.format("%x", cSet.Color2),
@@ -192,12 +177,9 @@ local function ApplyDyeButtonPressed(root)
         local dye = root.dyer_mc.colorSelector_mc.ddCombo_mc.color_id
         local name = ""
         if customDyesNames[dye] then
-            name = "CUSTOM_"..customDyesNames[dye][1].."-"..customDyesNames[dye][2].."-"..customDyesNames[dye][3]
+            name = "CUSTOM_"..tonumber("0x"..customDyesNames[dye][1]).."-"..tonumber("0x"..customDyesNames[dye][2]).."-"..tonumber("0x"..customDyesNames[dye][3])
             if not Ext.Stats.ItemColor.Get(name) then
-                local color1 = tonumber("0x"..string.gsub(name, "CUSTOM_", ""):gsub("-.*", ""))
-                local color2 = tonumber("0x"..string.gsub(name, "CUSTOM_[a-z0-9]+-", ""):gsub("-.*", ""))
-                local color3 = tonumber("0x"..string.gsub(name, "CUSTOM_.*-", ""))
-                Ext.Stats.ItemColor.Update({Name = name, Color1 = color1, Color2 = color2, Color3 = color3})
+                Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(name))
             end
         end
         local cSet = Ext.Stats.ItemColor.Get(dye)
@@ -213,7 +195,7 @@ local function ApplyDyeButtonPressed(root)
             return
         end
         
-        if string.match(name, "CUSTOM", 1) ~= null then
+        if string.match(name, "CUSTOM", 1) then
             name = "Custom"
         else
             name = dyes[dye].Name
@@ -354,11 +336,39 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
             SetupActiveTab(root, currentItem)
         end
     end)
+
+    -- Track followers in GM mode
+    if Ext.Utils.GetGameMode() == "GameMaster" then
+        Ext.Events.InputEvent:Subscribe(function(e)
+            if e.Event.EventId == 2 then
+                contextCharacter = Ext.UI.GetPickingState().HoverCharacter
+            end
+        end)
+        Ext.RegisterUITypeCall(11, "buttonPressed", function(ui, event, id, actionID, handle)
+            if id == 3 and actionID == 56 and contextCharacter then
+                Ext.Net.PostMessageToServer("DyeTagFollower", Ext.Json.Stringify({
+                    Character = Ext.Entity.GetCharacter(contextCharacter).NetID
+                }))
+            end
+        end)
+    end
 end)
 
 Ext.Events.GameStateChanged:Subscribe(function(e)
-    if e.ToState == "Running" and e.FromState ~= "GameMasterPause" then
+    if e.ToState == "PrepareRunning" and e.FromState ~= "Running" then
         Ext.Net.PostMessageToServer("DyeFetchList", "")
     end
 end)
 
+-- Executed on client startup
+Ext.RegisterNetListener("DyeSetup", function(call, payload)
+    local items = Ext.Json.Parse(payload)
+    for netid, color in pairs(items) do
+        if string.match(color, "CUSTOM", 1) then
+            local boost = LookForItemColorBoost(Ext.Entity.GetItem(tonumber(netid)))
+            Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(boost))
+        end
+        local item = Ext.ClientEntity.GetItem(tonumber(netid))
+        DyeItem(item, color, true)
+    end
+end)

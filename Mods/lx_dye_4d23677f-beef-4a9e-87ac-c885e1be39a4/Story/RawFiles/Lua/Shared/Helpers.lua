@@ -31,36 +31,45 @@ function LookForItemColorBoost(item)
     if not item then return nil end
     local i = 1
     local itemColor
-    while item.Stats.DynamicStats[i] do
-        local color = item.Stats.DynamicStats[i].ItemColor
-        if color ~= "" and not defaultDyes[color] then
-            itemColor = item.Stats.DynamicStats[i].ItemColor
-            break
-        end
-        i = i + 1 
-    end
-    return itemColor
+    -- while item.Stats.DynamicStats[i] do
+    --     local color = item.Stats.DynamicStats[i].ItemColor
+    --     if color ~= "" and not defaultDyes[color] then
+    --         itemColor = item.Stats.DynamicStats[i].ItemColor
+    --         break
+    --     end
+    --     i = i + 1 
+    -- end
+    -- return itemColor
+    return item.Stats.DynamicStats[2].ItemColor -- NRD_ItemSetPermanentBoostString seems to only care about i = 2 concerning ItemColor
 end
-
-SlotsNames = {
-	[0] = "Helmet",
-	[1] = "Breast",
-	[2] = "Leggings",
-	[3] = "Weapon",
-	[4] = "Shield",
-	[5] = "Ring",
-	[6] = "Belt",
-	[7] = "Boots",
-	[8] = "Gloves",
-	[9] = "Amulet",
-	[10] = "Ring2",
-	[11] = "Wings",
-	[12] = "Horns",
-	[13] = "Overhead",
-}
 
 ---@class DyeNetMessage
 ---@field Dye string
 ---@field Item integer
 ---@field InInventory boolean
 ---@field Colors table
+
+function GetColorFromCustomDyeName(name)
+    local color1 = string.gsub(name, "CUSTOM_", ""):gsub("-.*", "")
+    local color2 = string.gsub(name, "CUSTOM_[a-z0-9]+-", ""):gsub("-.*", "")
+    local color3 = string.gsub(name, "CUSTOM_.*-", "")
+    return {Name = name, Color1 = color1, Color2 = color2, Color3 = color3}
+end
+
+EquipmentSlots = {
+	[0]="Helmet",
+	[1]="Breast",
+	[2]="Leggings",
+	[3]="Weapon",
+	[4]="Shield",
+	[5]="Ring",
+	[6]="Belt",
+	[7]="Boots",
+	[8]="Gloves",
+	[9]="Amulet",
+	[10]="Ring2",
+	[11]="Wings",
+	[12]="Horns",
+	[13]="Overhead",
+	[14]="Sentinel"
+}

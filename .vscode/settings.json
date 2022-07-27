@@ -3,6 +3,7 @@
         "Ext"
     ],
     "Lua.diagnostics.disable": [
-        "need-check-nil"
+        "need-check-nil",
+        "redundant-parameter"
     ]
 }

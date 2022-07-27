@@ -24,7 +24,10 @@ local function LoadCustomDyes()
     _order = {}
     customDyesNames = {}
     setmetatable(customDyesNames, metaOrdering)
-    local content = Ext.Json.Parse(Ext.IO.LoadFile("Dyes.json"))
+    local content = Ext.IO.LoadFile("Dyes.json")
+    if content then
+        content = Ext.Json.Parse(content)
+    end
     if content then
         for name, dye in pairs(content) do
             customDyesNames[name] = dye

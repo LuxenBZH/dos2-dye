@@ -9,6 +9,14 @@ Ext.RegisterNetListener("DyeItem", function(call, payload)
     Ext.Net.BroadcastMessage("DyeItemClient", payload)
 end)
 
+local function RefreshVisuals(character)
+    ApplyStatus(character, "DYE_APPLY", 0.0, 1, character) -- Only POLYMORPHED statuses can refresh the entire armor
+    ApplyStatus(character, "DYE_APPLY_2", 0.0, 1, character)
+    if CharacterIsInCombat(character) == 1 then
+        RemoveStatus(character, "DYE_APPLY_2")
+    end
+end
+
 ---@param infos DyeNetMessage
 local function RefreshCharacterDyes(infos)
     local item = Ext.Entity.GetItem(tonumber(infos.Item)) --- @type EsvItem
@@ -16,14 +24,9 @@ local function RefreshCharacterDyes(infos)
         local inventory = GetInventoryOwner(item.MyGuid)
         if ObjectIsCharacter(inventory) == 1 then
             -- _P("Applying refresh...", inventory)
-            ApplyStatus(inventory, "DYE_APPLY", 0.0, 1, inventory) -- Only POLYMORPHED statuses can refresh the entire armor
-            if CharacterIsInCombat(inventory) == 1 then
-                RemoveStatus(inventory, "DYE_APPLY")
-            end
-            if Ext.Entity.GetCharacter(inventory).IsPossessed then
-                local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
-                PersistentVars.DyedItems[levelKey][GetUUID(item.MyGuid)] = true
-            end
+            RefreshVisuals(inventory)
+            local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+            PersistentVars.DyedItems[levelKey][GetUUID(item.MyGuid)] = true
         end
     else
         local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
@@ -70,6 +73,15 @@ local function GetPlayersInventoriesDyes()
             end
         end
     end
+    for character, b in pairs(PersistentVars.Followers) do
+        for i, item in pairs(Ext.Entity.GetCharacter(character):GetInventoryItems()) do
+            local eItem = Ext.Entity.GetItem(item)
+            local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
+            if eItem.Stats and color ~= "" then
+                dyedItems[tostring(eItem.NetID)] = color
+            end
+        end
+    end
     return dyedItems
 end
 
@@ -77,6 +89,7 @@ end
 Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
     local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
     local netIDs = {}
+    if not PersistentVars.DyedItems[levelKey] then return end
     for guid,bool in pairs(PersistentVars.DyedItems[levelKey]) do
         if ObjectExists(guid) == 0 then
             PersistentVars.DyedItems[levelKey][guid] = false
@@ -84,25 +97,31 @@ Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
             netIDs[Ext.Entity.GetItem(guid).NetID] = NRD_ItemGetPermanentBoostString(guid, "ItemColor")
         end
     end
-    Ext.Net.PostMessageToUser(clientID, "DyeSetup", Ext.Json.Stringify(TableConcat(netIDs, GetPlayersInventoriesDyes())))
+    for ni, color in pairs(GetPlayersInventoriesDyes()) do
+        netIDs[ni] = color
+    end
+    Ext.Net.PostMessageToUser(clientID, "DyeSetup", Ext.Json.Stringify(netIDs))
 end)
 
 -- Create a table for a level if it doesn't exists yet
 ---@param level string
 ---@param isEditor integer
-Ext.Osiris.RegisterListener("GameStarted", 2, "before", function(level, isEditor)
-    levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
-    if not PersistentVars.DyedItems[levelKey] then
-        PersistentVars.DyedItems[levelKey] = {}
+Ext.Events.GameStateChanged:Subscribe(function(e)
+    if e.ToState == "Sync" then
+        levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+        if not PersistentVars.DyedItems[levelKey] then
+            PersistentVars.DyedItems[levelKey] = {}
+        end
     end
 end)
 
 -- if a character drops an item, make sure it's included in the floating dyes list
 ---@param item string
 Ext.Osiris.RegisterListener("ItemDropped", 1, "before", function(item)
-    if Ext.Entity.GetItem(item).Stats and NRD_ItemGetPermanentBoostString(item, "ItemColor") ~= "" then
+    local item = Ext.Entity.GetItem(item)
+    if item.Stats and item.Stats.DynamicStats[2] ~= "" then
         local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
-        PersistentVars.DyedItems[levelKey][item] = true
+        PersistentVars.DyedItems[levelKey][item.MyGuid] = true
     end
 end)
 
@@ -114,25 +133,68 @@ Ext.Osiris.RegisterListener("ItemAddedToCharacter", 2, "before", function(item, 
     if Ext.GetGameState() == "Running" and PersistentVars.DyedItems[levelKey] and PersistentVars.DyedItems[levelKey][item] then
         local char = Ext.Entity.GetCharacter(character)
         if char.IsPlayer and not char.IsPossessed then
-            PersistentVars.DyedItems[levelKey][item] = nil
+            PersistentVars.DyedItems[levelKey][GetUUID(item)] = nil
         end
     end
 end)
 
+--- Triggers a synchronisation at game start
 ---@param e EsvLuaGameStateChangeEventParams
 Ext.Events.GameStateChanged:Subscribe(function(e)
-    if e.FromState == "GameMasterPause" and e.ToState == "Running" then
+    if e.FromState == "Sync" and e.ToState == "Running" then
         local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+        local inventories = {}
         for item, b in pairs(PersistentVars.DyedItems[levelKey]) do
-            item = Ext.Entity.GetItem(item) --- @type EsvItem
-            if item.ParentInventoryHandle and
-                ObjectIsCharacter(Ext.Entity.GetInventory(item.ParentInventoryHandle).GUID) == 1 and
-                CharacterGetEquippedItem(Ext.Entity.GetCharacter(item.InventoryHandle).MyGuid, SlotsNames[item.Slot]) then
-                RefreshCharacterDyes({
-                    Item = item.NetID,
-                    Dye = NRD_ItemGetPermanentBoostString(item.MyGuid, "ItemColor"),
-                    InInventory = Ext.Utils.IsValidHandle(item.ParentInventoryHandle)
-                })
+            if ObjectExists(item) == 1 then
+                item = Ext.Entity.GetItem(item) --- @type EsvItem
+                local parent = NRD_ItemGetParent(item.MyGuid)
+                if parent and not inventories[parent] and ObjectIsCharacter(parent) and CharacterGetEquippedItem(parent, item.Stats.ItemSlot) == item.MyGuid then
+                    if item.Stats.DynamicStats[2] == "" or item.Stats.DynamicStats[2] == "DefaultGray" then
+                        PersistentVars.DyedItems[levelKey][item.MyGuid] = nil
+                    else
+                        inventories[parent] = true
+                    end
+                end
+                if not parent then
+                    Transform(item.MyGuid, item.RootTemplate.Id, 0, 0, 0)
+                end
+            else
+                PersistentVars.DyedItems[levelKey][item] = nil
+            end
+        end
+        for character, i in pairs(PersistentVars.Followers) do
+            inventories[character] = true
+        end
+        for character, i in pairs(inventories) do
+            RefreshVisuals(character)
+        end
+    end
+end)
+
+--- In GM mode, it is necessary to track character following the party across the scene to ensure their items dyes are sync. They are treated like player characters in that case.
+Ext.RegisterNetListener("DyeTagFollower", function(call, payload)
+    if not PersistentVars.Followers then
+        PersistentVars.Followers = {}
+    end
+    local character = Ext.Entity.GetCharacter(tonumber(Ext.Json.Parse(payload).Character))
+    if not PersistentVars.Followers[character.MyGuid] then
+        PersistentVars.Followers[character.MyGuid] = true
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+        for i, item in pairs(character:GetInventoryItems()) do
+            local eItem = Ext.Entity.GetItem(item)
+            local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
+            if eItem.Stats and color ~= "" then
+                PersistentVars.DyedItems[levelKey][eItem.MyGuid] = nil
+            end
+        end
+    else
+        PersistentVars.Followers[character.MyGuid] = nil
+        local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+        for i, item in pairs(character:GetInventoryItems()) do
+            local eItem = Ext.Entity.GetItem(item)
+            local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
+            if eItem.Stats and color ~= "" then
+                PersistentVars.DyedItems[levelKey][eItem.MyGuid] = true
             end
         end
     end
