@@ -27,7 +27,13 @@ end
 
 local function ManageInputBoxAnswer(ui, call, buttonID, device)
     local ui = Ext.UI.GetByPath("Public/Game/GUI/msgBox.swf")
-    local infos = Ext.Json.Parse(ui:GetRoot().popup_mc.input_mc.copy_mc.tooltip)
+    local root = ui:GetRoot()
+    local infos = nil
+    if root.popup_mc.input_mc.copy_mc.tooltip then
+        infos = Ext.Json.Parse(root.popup_mc.input_mc.copy_mc.tooltip)
+    else
+        return
+    end
     infos.ButtonID = tonumber(infos.ButtonID)
     ui:Invoke("setTooltip", 1, "")
     if math.floor(buttonID) == 4049 then

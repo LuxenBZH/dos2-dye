@@ -136,7 +136,7 @@ end
 local function SetupColorSelector(root, itemDye)
     root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.text_txt.htmlText = ""
     root.dyer_mc.colorSelector_mc.ddCombo_mc.top_mc.cSet_mc.visible = false
-    if not itemDye then
+    if not itemDye or itemDye == "" or itemDye == "DefaultGray" then
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
         root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
     elseif string.match(itemDye, "CUSTOM", 1) then
@@ -150,24 +150,23 @@ local function SetupColorSelector(root, itemDye)
             string.format("%x", cSet.Color2),
             string.format("%x", cSet.Color3)
         })
-    -- else
-    --     root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
-    --     local cSet = dyes[itemDye]
-    --     ChangeDyerMcColors(cSet.Name, cSet.Colors)
+    else
+        root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
+        local cSet = dyes[itemDye]
+        ChangeDyerMcColors(cSet.Name, cSet.Colors)
     end
 end
 
 --- @param root any|UIObject
 --- @param item EclItem
 local function SetupActiveTab(root, item)
-    local itemDye = LookForItemColorBoost(currentItem)
+    local itemDye = LookForItemColorBoost(Ext.Entity.GetItem(currentItem))
     if root.dyer_mc.tabButton1_mc.activated then
         SetupBuiltinDyes(root)
         SetupColorSelector(root, itemDye)
     elseif root.dyer_mc.tabButton2_mc then
         SetupCustomDyes(root)
         SetupColorSelector(root, itemDye)
-    elseif root.dyer_mc.tabButton3_mc then
     end
 end
 
@@ -184,10 +183,10 @@ local function ApplyDyeButtonPressed(root)
         end
         local cSet = Ext.Stats.ItemColor.Get(dye)
         if name ~= "" then
-            DyeItem(currentItem, name)
+            DyeItem(Ext.Entity.GetItem(currentItem), name)
             cSet = Ext.Stats.ItemColor.Get(name)
         else
-            DyeItem(currentItem, dye)
+            DyeItem(Ext.Entity.GetItem(currentItem), dye)
         end
 
         if dye == "Default" then
@@ -215,13 +214,13 @@ local function ApplyDyeButtonPressed(root)
         local tertiary = ((root.dyer_mc.colorMaker_mc.colorButton3_mc.red & 0x0ff)<<16|
                         ((root.dyer_mc.colorMaker_mc.colorButton3_mc.green & 0x0ff)<<8)|
                         (root.dyer_mc.colorMaker_mc.colorButton3_mc.blue & 0x0ff))
-        DyeItemCustom(currentItem, primary, secondary, tertiary, false)
+        DyeItemCustom(Ext.Entity.GetItem(currentItem), primary, secondary, tertiary, false)
     end
 end
 
 --- @param item EclItem
 function PrepareDye(item)
-    currentItem = item
+    currentItem = item.NetID
     local ui = Ext.UI.GetByName("LXN_Dye")
     ui:SetCustomIcon("dye_equipment", item.RootTemplate.Icon, 57, 57)
     local root = ui:GetRoot()
@@ -247,7 +246,7 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
     Ext.RegisterUICall(ui, "dye_setTab", function(arg1, call, tab)
         local ui = Ext.UI.GetByName("LXN_Dye")
         local root = ui:GetRoot()
-        SetupActiveTab(root, currentItem)
+        SetupActiveTab(root, Ext.Entity.GetItem(currentItem))
     end)
     
     Ext.RegisterUICall(ui, "dye_apply", function(...)
@@ -333,7 +332,7 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
         if top_mc.text_txt.htmlText ~= "Default" then
             RemoveCustomDye(top_mc.text_txt.htmlText)
             local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
-            SetupActiveTab(root, currentItem)
+            SetupActiveTab(root, Ext.Entity.GetItem(currentItem))
         end
     end)
 

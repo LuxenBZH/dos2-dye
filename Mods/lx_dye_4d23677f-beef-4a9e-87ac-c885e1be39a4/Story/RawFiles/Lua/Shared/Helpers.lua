@@ -35,12 +35,20 @@ function LookForItemColorBoost(item)
     --     local color = item.Stats.DynamicStats[i].ItemColor
     --     if color ~= "" and not defaultDyes[color] then
     --         itemColor = item.Stats.DynamicStats[i].ItemColor
-    --         break
+    --         _P(i, itemColor)
+    --         -- break
     --     end
     --     i = i + 1 
     -- end
     -- return itemColor
-    return item.Stats.DynamicStats[2].ItemColor -- NRD_ItemSetPermanentBoostString seems to only care about i = 2 concerning ItemColor
+    if item.ItemType == "Unique" then
+        return item.Stats.DynamicStats[1].ItemColor -- [1] is reliable on uniques in all cases
+    end
+    if item.Stats.DynamicStats[2].ItemColor ~= "" then
+        return item.Stats.DynamicStats[1].ItemColor -- [1] is reliable to read only if [2] is set from a previous game
+    else
+        return nil -- If [2] is missing, then [1] is not the real color so can safely return nil.
+    end
 end
 
 ---@class DyeNetMessage

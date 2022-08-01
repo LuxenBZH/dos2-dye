@@ -34,6 +34,7 @@ local function RefreshCharacterDyes(infos)
         Transform(item.MyGuid, item.RootTemplate.Id, 0, 0, 0)
     end
     if infos.Dye == "Default" then
+        SetTag(item.MyGuid, "DYE_Default")
         NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", "")
     elseif infos.Dye == "CUSTOM" then
         local dye = "CUSTOM_"..infos.Colors[1]..infos.Colors[2]..infos.Colors[3]
@@ -42,8 +43,10 @@ local function RefreshCharacterDyes(infos)
             Ext.Stats.ItemColor.Update({Name=dye, Color1=tonumber(infos.Colors[1]), Color2=tonumber(infos.Colors[2]), Color3=tonumber(infos.Colors[3])})
         end
         NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", dye)
+        SetTag(item.MyGuid, "DYE_"..dye)
     else
         NRD_ItemSetPermanentBoostString(item.MyGuid, "ItemColor", infos.Dye)
+        SetTag(item.MyGuid, "DYE_"..infos.Dye)
     end
 end
 
@@ -67,9 +70,11 @@ local function GetPlayersInventoriesDyes()
         player = player[1]
         for i, item in pairs(Ext.Entity.GetCharacter(player):GetInventoryItems()) do
             local eItem = Ext.Entity.GetItem(item)
-            local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
-            if eItem.Stats and color ~= "" then
-                dyedItems[tostring(eItem.NetID)] = color
+            if eItem.Stats then
+                local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
+                if eItem.Stats and color ~= "" then
+                    dyedItems[tostring(eItem.NetID)] = color
+                end
             end
         end
     end
