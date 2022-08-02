@@ -225,7 +225,7 @@ function PrepareDye(item)
     ui:SetCustomIcon("dye_equipment", item.RootTemplate.Icon, 57, 57)
     local root = ui:GetRoot()
     root.dyer_mc.equipment_txt.htmlText = item.DisplayName or item.CustomDisplayName
-    root.dyer_mc.visible = true
+    ui:Show()
     SetupActiveTab(root, item)
 end
 
@@ -234,7 +234,7 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
     Ext.UI.Create("LXN_Dye", "Public/lx_dye_4d23677f-beef-4a9e-87ac-c885e1be39a4/Game/GUI/dye.swf", 10)
     local ui = Ext.UI.GetByName("LXN_Dye")
     local root = ui:GetRoot()
-    root.dyer_mc.visible = false
+    ui:Hide()
     root.dyer_mc.tabButton1_mc.text_txt.htmlText = "Standard"
     root.dyer_mc.tabButton2_mc.text_txt.htmlText = "Saved"
     root.dyer_mc.tabButton3_mc.text_txt.htmlText = "Create"
@@ -253,10 +253,8 @@ Ext.Events.SessionLoaded:Subscribe(function(e)
         local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
         ApplyDyeButtonPressed(root)
     end)
-    Ext.RegisterUICall(ui, "dye_close", function(...)
-        local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
-        currentItem = nil
-        root.dyer_mc.visible = false
+    Ext.RegisterUICall(ui, "dye_close", function(ui, ...)
+        ui:Hide()
     end)
     Ext.RegisterUICall(ui, "dye_tab2", function(...)
         local root = Ext.UI.GetByName("LXN_Dye"):GetRoot()
