@@ -40,7 +40,6 @@ function LookForItemColorBoost(item)
     --     end
     --     i = i + 1 
     -- end
-    -- return itemColor
     if item.ItemType == "Unique" then
         return item.Stats.DynamicStats[1].ItemColor -- [1] is reliable on uniques in all cases
     end

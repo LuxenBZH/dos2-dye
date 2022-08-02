@@ -124,7 +124,8 @@ end)
 ---@param item string
 Ext.Osiris.RegisterListener("ItemDropped", 1, "before", function(item)
     local item = Ext.Entity.GetItem(item)
-    if item.Stats and item.Stats.DynamicStats[2] ~= "" then
+    local dye = NRD_ItemGetPermanentBoostString(item.MyGuid, "ItemColor")
+    if dye and dye ~= "" then
         local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
         PersistentVars.DyedItems[levelKey][item.MyGuid] = true
     end
@@ -153,8 +154,9 @@ Ext.Events.GameStateChanged:Subscribe(function(e)
             if ObjectExists(item) == 1 then
                 item = Ext.Entity.GetItem(item) --- @type EsvItem
                 local parent = NRD_ItemGetParent(item.MyGuid)
+                local dye = NRD_ItemGetPermanentBoostString(item.MyGuid, "ItemColor")
                 if parent and not inventories[parent] and ObjectIsCharacter(parent) and CharacterGetEquippedItem(parent, item.Stats.ItemSlot) == item.MyGuid then
-                    if item.Stats.DynamicStats[2] == "" or item.Stats.DynamicStats[2] == "DefaultGray" then
+                    if dye == "" or dye == "DefaultGray" then
                         PersistentVars.DyedItems[levelKey][item.MyGuid] = nil
                     else
                         inventories[parent] = true

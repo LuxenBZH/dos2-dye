@@ -364,8 +364,7 @@ Ext.RegisterNetListener("DyeSetup", function(call, payload)
     local items = Ext.Json.Parse(payload)
     for netid, color in pairs(items) do
         if string.match(color, "CUSTOM", 1) then
-            local boost = LookForItemColorBoost(Ext.Entity.GetItem(tonumber(netid)))
-            Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(boost))
+            Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(color))
         end
         local item = Ext.ClientEntity.GetItem(tonumber(netid))
         DyeItem(item, color, true)
