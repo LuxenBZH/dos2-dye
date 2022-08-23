@@ -64,7 +64,7 @@ end
 local function DyeItemCustom(item, primary, secondary, tertiary, fromPeer)
     for dye, colors in pairs(customDyes) do
         if colors[1] == primary and colors[2] == secondary and colors[3] == tertiary then
-            DyeItem(item, dye, false)
+            DyeItem(item, dye, fromPeer)
             return
         end
     end
@@ -371,6 +371,7 @@ Ext.RegisterNetListener("DyeSetup", function(call, payload)
             Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(color))
         end
         local item = Ext.ClientEntity.GetItem(tonumber(netid))
-        DyeItem(item, color, false)
+        DyeItem(item, color, true)
     end
+    Ext.Net.PostMessageToServer("RefreshAllDyes", "")
 end)

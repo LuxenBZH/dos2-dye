@@ -92,6 +92,25 @@ local function GetPlayersInventoriesDyes()
     return dyedItems
 end
 
+Ext.RegisterNetListener("RefreshAllDyes", function(...)
+    local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
+    local characters = {}
+    if not PersistentVars.DyedItems[levelKey] then return end
+    for guid,bool in pairs(PersistentVars.DyedItems[levelKey]) do
+        if ObjectExists(guid) == 0 then
+            PersistentVars.DyedItems[levelKey][guid] = false
+        else
+            characters[#characters+1] = Osi.GetInventoryOwner(guid)
+        end
+    end
+    for i,player in pairs(Osi.DB_IsPlayer:Get(nil)) do
+        characters[#characters+1] = player[1]
+    end
+    for i,char in pairs(characters) do
+        RefreshVisuals(char)
+    end
+end)
+
 -- Send the list of dyed items to the clients to refresh and remove deleted/undyed items
 Ext.RegisterNetListener("DyeFetchList", function(call, payload, clientID)
     local levelKey = Ext.Utils.GetGameMode() == "GameMaster" and Ext.ServerEntity.GetCurrentLevelData().UniqueKey or Ext.ServerEntity.GetCurrentLevelData().LevelName
