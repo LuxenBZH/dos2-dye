@@ -101,8 +101,9 @@ end
 -- All clients need to sync the dye calls
 Ext.RegisterNetListener("DyeItemClient", function(call, payload)
     local infos = Ext.Json.Parse(payload)
-    if infos.Dye == "CUSTOM" then
-        DyeItemCustom(Ext.Entity.GetItem(tonumber(infos.Item)), infos.Colors[1], infos.Colors[2], infos.Colors[3], true)
+    if string.match(infos.Dye, "CUSTOM", 1) then
+        local colors = GetColorFromCustomDyeName(infos.Dye)
+        DyeItemCustom(Ext.Entity.GetItem(tonumber(infos.Item)), colors.Color1, colors.Color2, colors.Color3, true)
     else
         DyeItem(Ext.Entity.GetItem(tonumber(infos.Item)), infos.Dye, true)
     end
@@ -153,6 +154,11 @@ local function SetupColorSelector(root, itemDye)
     else
         root.dyer_mc.colorSelector_mc.cSet_mc.visible = true
         local cSet = dyes[itemDye]
+        if not cSet then
+            root.dyer_mc.colorSelector_mc.cSet_mc.visible = false
+            root.dyer_mc.colorSelector_mc.currentColor_txt.htmlText = "Default"
+            return
+        end
         ChangeDyerMcColors(cSet.Name, cSet.Colors)
     end
 end
@@ -365,6 +371,6 @@ Ext.RegisterNetListener("DyeSetup", function(call, payload)
             Ext.Stats.ItemColor.Update(GetColorFromCustomDyeName(color))
         end
         local item = Ext.ClientEntity.GetItem(tonumber(netid))
-        DyeItem(item, color, true)
+        DyeItem(item, color, false)
     end
 end)

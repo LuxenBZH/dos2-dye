@@ -79,11 +79,13 @@ local function GetPlayersInventoriesDyes()
         end
     end
     for character, b in pairs(PersistentVars.Followers) do
-        for i, item in pairs(Ext.Entity.GetCharacter(character):GetInventoryItems()) do
-            local eItem = Ext.Entity.GetItem(item)
-            local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
-            if eItem.Stats and color ~= "" then
-                dyedItems[tostring(eItem.NetID)] = color
+        if Osi.ObjectExists(character) == 1 then
+            for i, item in pairs(Ext.Entity.GetCharacter(character):GetInventoryItems()) do
+                local eItem = Ext.Entity.GetItem(item)
+                local color = NRD_ItemGetPermanentBoostString(item, "ItemColor")
+                if eItem.Stats and color ~= "" then
+                    dyedItems[tostring(eItem.NetID)] = color
+                end
             end
         end
     end
